@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root,
+[data-theme="indigo"] {
+  --chrome-bg: #1b2852;
+  --chrome-border: #31468c;
+  --chrome-ink: #eef2fc;
+  --chrome-muted: #c2d2fa;
+  --chrome-pill: #131d3d;
+  --bg-canvas: #111936;
+  --bg-card: #1e2f66;
+  --bg-subtle: #15224d;
+  --bg-input: #131e45;
+  --bg-highlight: #f2bc41;
+  --bg-selected: #2b4491;
+  --border-card: #4d6bc7;
+  --border-strong: #f2bc41;
+  --ink-main: #f2f5ff;
+  --ink-muted: #c4d3fa;
+  --btn-primary: #f2bc41;
+  --btn-primary-hover: #e0aa2b;
+  --btn-ink: #111936;
+  --accent-control: #f2bc41;
+  --wave-active: #f2bc41;
+  --wave-idle: rgba(238, 242, 252, 0.42);
+}
+
+[data-theme="light"] {
+  --chrome-bg: #1b2852;
+  --chrome-border: #101836;
+  --chrome-ink: #eef2fc;
+  --chrome-muted: #c2d2fa;
+  --chrome-pill: #131d3d;
+  --bg-canvas: #273c7d;
+  --bg-card: #f3f5fc;
+  --bg-subtle: #dfe6f7;
+  --bg-input: #fafbfe;
+  --bg-highlight: #f2bc41;
+  --bg-selected: #d5e0fa;
+  --border-card: #6e85c9;
+  --border-strong: #1b2852;
+  --ink-main: #111836;
+  --ink-muted: #24305c;
+  --btn-primary: #1b2852;
+  --btn-primary-hover: #131d3d;
+  --btn-ink: #eef2fc;
+  --accent-control: #1b2852;
+  --wave-active: #f2bc41;
+  --wave-idle: rgba(238, 242, 252, 0.42);
+}
+
+[data-theme="plum"] {
+  --chrome-bg: #3a1647;
+  --chrome-border: #682f7d;
+  --chrome-ink: #f8effc;
+  --chrome-muted: #dec4eb;
+  --chrome-pill: #280e33;
+  --bg-canvas: #220b2b;
+  --bg-card: #3d184d;
+  --bg-subtle: #2c1038;
+  --bg-input: #260d30;
+  --bg-highlight: #f2bc41;
+  --bg-selected: #57256e;
+  --border-card: #884ba1;
+  --border-strong: #f2bc41;
+  --ink-main: #faf5ff;
+  --ink-muted: #dfc8eb;
+  --btn-primary: #f2bc41;
+  --btn-primary-hover: #e0aa2b;
+  --btn-ink: #220b2b;
+  --accent-control: #f2bc41;
+  --wave-active: #f2bc41;
+  --wave-idle: rgba(248, 239, 252, 0.42);
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--ink-main);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}

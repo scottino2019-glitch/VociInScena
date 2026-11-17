@@ -1,0 +1,6 @@
+{
+  "name": "VociInScena - Studio Dialoghi Vocali Senza AI",
+  "description": "Crea dialoghi realistici tra due personaggi (maschile e femminile, femminile e femminile, maschile e maschile) con sintesi vocale, personalizzazione di tono, ritmo ed enfasi emotiva e download in MP3.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
