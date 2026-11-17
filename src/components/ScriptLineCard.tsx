@@ -1,14 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Loader2, ChevronUp, ChevronDown, Copy, Trash2, Sliders, Clock } from 'lucide-react';
-import { Character, DialogueLine } from '../types';
+import { Play, Square, ChevronUp, ChevronDown, Copy, Trash2, Sliders, Clock } from 'lucide-react';
+import { Character, DialogueLine, VoiceOption } from '../types';
 import { EMOTIONS } from '../constants/presets';
 import { base64ToMp3BlobUrl, speakLocal, stopLocalSpeech } from '../utils/audio';
+import { getVoiceLang, isBrowserVoiceId } from '../hooks/useDeviceVoices';
 
 interface ScriptLineCardProps {
   line: DialogueLine;
   index: number;
   totalLines: number;
   characters: Record<'char1' | 'char2', Character>;
+  deviceVoices: VoiceOption[];
+  backendAvailable: boolean;
+  onBackendUnavailable?: () => void;
   isActive: boolean;
   onUpdate: (updated: Partial<DialogueLine>) => void;
   onMoveUp: () => void;
@@ -22,6 +26,9 @@ export const ScriptLineCard: React.FC<ScriptLineCardProps> = ({
   index,
   totalLines,
   characters,
+  deviceVoices,
+  backendAvailable,
+  onBackendUnavailable,
   isActive,
   onUpdate,
   onMoveUp,
@@ -50,84 +57,109 @@ export const ScriptLineCard: React.FC<ScriptLineCardProps> = ({
 
   const speaker = characters[line.characterId];
 
-  const handleSoloPlay = async () => {
+  const handleSoloPlay = () => {
     if (isPlayingSolo) {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopLocalSpeech();
       setIsPlayingSolo(false);
       return;
     }
 
-    if (!line.text.trim()) return;
+    const cleanText = line.text.trim();
+    if (!cleanText) return;
     setIsPlayingSolo(true);
 
-    try {
-      const response = await fetch('/api/tts/preview-line', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: line.text.trim(),
-          voice: speaker.voice,
-          pitchHz: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
-          ratePct: (speaker.defaultRate || 0) + (line.rateOffset || 0),
-          volumePct: line.volumeOffset || 0,
-          emotion: line.emotion,
-        }),
-      });
+    const lang = getVoiceLang(speaker.voice, deviceVoices);
+    const pitch = (speaker.defaultPitch || 0) + (line.pitchOffset || 0);
+    const rate = (speaker.defaultRate || 0) + (line.rateOffset || 0);
 
-      if (!response.ok) {
-        speakLocal(line.text.trim(), {
-          lang: speaker.voice.slice(0, 5) || 'it-IT',
-          pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
-          rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
-          gender: speaker.gender,
-          emotion: line.emotion,
-          onEnd: () => setIsPlayingSolo(false),
-        });
-        return;
-      }
-
-      const data = await response.json();
-
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-      }
-
-      const url = base64ToMp3BlobUrl(data.audioBase64);
-      blobUrlRef.current = url;
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => setIsPlayingSolo(false);
-      audio.onpause = () => setIsPlayingSolo(false);
-      audio.onerror = () => setIsPlayingSolo(false);
-
-      try {
-        await audio.play();
-      } catch (playErr: any) {
-        if (playErr?.name === 'AbortError' || playErr?.name === 'NotAllowedError') {
-          setIsPlayingSolo(false);
-          return;
-        }
-        throw playErr;
-      }
-    } catch {
-      stopLocalSpeech();
-      speakLocal(line.text.trim(), {
-        lang: speaker.voice.slice(0, 5) || 'it-IT',
-        pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
-        rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
+    // Synchronous SpeechSynthesis for Google/Android browser voices or unavailable backend
+    if (isBrowserVoiceId(speaker.voice) || !backendAvailable) {
+      speakLocal(cleanText, {
+        voiceId: speaker.voice,
+        lang,
+        pitch,
+        rate,
         gender: speaker.gender,
         emotion: line.emotion,
         onEnd: () => setIsPlayingSolo(false),
       });
+      return;
     }
+
+    void (async () => {
+      try {
+        const response = await fetch('/api/tts/preview-line', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: cleanText,
+            voice: speaker.voice,
+            pitchHz: pitch,
+            ratePct: rate,
+            volumePct: line.volumeOffset || 0,
+            emotion: line.emotion,
+          }),
+        });
+
+        if (response.status === 404) {
+          onBackendUnavailable?.();
+        }
+
+        if (!response.ok) {
+          speakLocal(cleanText, {
+            voiceId: speaker.voice,
+            lang,
+            pitch,
+            rate,
+            gender: speaker.gender,
+            emotion: line.emotion,
+            onEnd: () => setIsPlayingSolo(false),
+          });
+          return;
+        }
+
+        const data = await response.json();
+
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        if (blobUrlRef.current) {
+          URL.revokeObjectURL(blobUrlRef.current);
+        }
+
+        const url = base64ToMp3BlobUrl(data.audioBase64);
+        blobUrlRef.current = url;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => setIsPlayingSolo(false);
+        audio.onpause = () => setIsPlayingSolo(false);
+        audio.onerror = () => setIsPlayingSolo(false);
+
+        try {
+          await audio.play();
+        } catch (playErr: any) {
+          if (playErr?.name === 'AbortError' || playErr?.name === 'NotAllowedError') {
+            setIsPlayingSolo(false);
+            return;
+          }
+          throw playErr;
+        }
+      } catch {
+        stopLocalSpeech();
+        speakLocal(cleanText, {
+          voiceId: speaker.voice,
+          lang,
+          pitch,
+          rate,
+          gender: speaker.gender,
+          emotion: line.emotion,
+          onEnd: () => setIsPlayingSolo(false),
+        });
+      }
+    })();
   };
 
   return (
@@ -181,12 +213,12 @@ export const ScriptLineCard: React.FC<ScriptLineCardProps> = ({
             <button
               type="button"
               onClick={handleSoloPlay}
-              disabled={isPlayingSolo || !line.text.trim()}
-              title="Ascolta questa battuta"
+              disabled={!line.text.trim()}
+              title={isPlayingSolo ? 'Ferma battuta' : 'Ascolta questa battuta'}
               className="p-2 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors disabled:opacity-40"
             >
               {isPlayingSolo ? (
-                <Loader2 className="w-4 h-4 animate-spin text-[var(--btn-primary)]" />
+                <Square className="w-4 h-4 fill-current text-[var(--btn-primary)]" />
               ) : (
                 <Play className="w-4 h-4 fill-current" />
               )}

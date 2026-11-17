@@ -16,6 +16,7 @@ export interface VoiceOption {
   gender: Gender;
   lang: string;
   langLabel: string;
+  source?: 'edge-neural' | 'google-tts' | 'browser';
 }
 
 export interface Character {

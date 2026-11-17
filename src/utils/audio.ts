@@ -38,10 +38,14 @@ export function downloadBase64Mp3(base64Data: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// Offline / Local browser SpeechSynthesis helper
+// Hold reference to active utterance to prevent premature GC on Chrome/Android
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+
+// Offline / Local browser SpeechSynthesis helper (Google & Android voices)
 export function speakLocal(
   text: string,
   options: {
+    voiceId?: string;
     lang?: string;
     pitch?: number;
     rate?: number;
@@ -50,13 +54,15 @@ export function speakLocal(
     onEnd?: () => void;
   }
 ) {
-  if (!('speechSynthesis' in window)) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     options.onEnd?.();
     return;
   }
 
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
+  activeUtterance = utterance;
+
   const targetLang = options.lang || 'it-IT';
   utterance.lang = targetLang;
 
@@ -74,66 +80,105 @@ export function speakLocal(
   // Emotion adjustments
   switch (options.emotion) {
     case 'entusiasta':
-      pitchVal += 0.2;
-      rateVal += 0.15;
+      pitchVal += 0.18;
+      rateVal += 0.14;
       break;
     case 'calmo':
-      pitchVal -= 0.1;
-      rateVal -= 0.15;
+      pitchVal -= 0.08;
+      rateVal -= 0.14;
       break;
     case 'serio':
-      pitchVal -= 0.15;
-      rateVal -= 0.1;
+      pitchVal -= 0.14;
+      rateVal -= 0.08;
       break;
     case 'sorpreso':
-      pitchVal += 0.3;
+      pitchVal += 0.25;
       rateVal += 0.1;
       break;
     case 'triste':
-      pitchVal -= 0.2;
-      rateVal -= 0.2;
+      pitchVal -= 0.18;
+      rateVal -= 0.18;
       break;
     case 'ironico':
-      pitchVal += 0.1;
+      pitchVal += 0.08;
       break;
+  }
+
+  // Try to pick the exact chosen Google/Android voice or best language/gender match
+  const voices = window.speechSynthesis.getVoices() || [];
+  let chosenVoice: SpeechSynthesisVoice | undefined;
+
+  if (options.voiceId && options.voiceId.startsWith('browser:')) {
+    const wantedKey = options.voiceId.slice('browser:'.length);
+    chosenVoice =
+      voices.find((v) => (v.voiceURI || v.name) === wantedKey) ||
+      voices.find((v) => v.name === wantedKey);
+  }
+
+  if (!chosenVoice && voices.length > 0) {
+    const langPrefix = targetLang.split('-')[0].toLowerCase();
+    const matchingVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(langPrefix));
+    const pool = matchingVoices.length > 0 ? matchingVoices : voices;
+
+    // Prefer Google / Android voices in the matching language
+    const googlePreferred = pool.filter((v) => /google|android/i.test(`${v.name} ${v.voiceURI}`));
+    const searchPool = googlePreferred.length > 0 ? googlePreferred : pool;
+
+    if (options.gender === 'female') {
+      chosenVoice =
+        searchPool.find((v) =>
+          /elsa|alice|federica|chiara|lucia|nanami|sun-?hi|xiaoxiao|jenny|aria|elvira|denise|katja|female|woman|it-it-x-it[ab]-/i.test(
+            `${v.name} ${v.voiceURI}`
+          )
+        ) || searchPool[0];
+    } else {
+      chosenVoice =
+        searchPool.find((v) =>
+          /diego|giuseppe|giorgio|carlo|cosimo|keita|in-?joon|yunxi|guy|alvaro|henri|conrad|male|man|it-it-x-it[cd]-/i.test(
+            `${v.name} ${v.voiceURI}`
+          )
+        ) || searchPool[searchPool.length - 1];
+    }
+  }
+
+  if (chosenVoice) {
+    utterance.voice = chosenVoice;
+    utterance.lang = chosenVoice.lang || targetLang;
+
+    // Give subtle natural pitch separation if using a shared default voice (like single Google italiano)
+    if (!options.pitch) {
+      const voiceMeta = `${chosenVoice.name} ${chosenVoice.voiceURI}`;
+      if (options.gender === 'male' && !/diego|giuseppe|giorgio|carlo|cosimo|male|it-it-x-it[cd]-/i.test(voiceMeta)) {
+        pitchVal -= 0.14;
+      } else if (options.gender === 'female' && /diego|giuseppe|giorgio|carlo|cosimo|male|it-it-x-it[cd]-/i.test(voiceMeta)) {
+        pitchVal += 0.14;
+      }
+    }
   }
 
   utterance.pitch = Math.max(0.5, Math.min(2.0, pitchVal));
   utterance.rate = Math.max(0.5, Math.min(2.0, rateVal));
 
-  // Try to pick a matching language and gender voice if available in the browser
-  const voices = window.speechSynthesis.getVoices();
-  const langPrefix = targetLang.split('-')[0].toLowerCase();
-  const matchingVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(langPrefix));
-  if (matchingVoices.length > 0) {
-    if (options.gender === 'female') {
-      const female =
-        matchingVoices.find((v) =>
-          /elsa|alice|federica|chiara|lucia|nanami|sunhi|xiaoxiao|jenny|aria|elvira|denise|katja|female|woman/i.test(
-            v.name
-          )
-        ) || matchingVoices[0];
-      utterance.voice = female;
-    } else {
-      const male =
-        matchingVoices.find((v) =>
-          /diego|giuseppe|giorgio|carlo|keita|injoon|yunxi|guy|alvaro|henri|conrad|male|man/i.test(v.name)
-        ) || matchingVoices[matchingVoices.length - 1];
-      utterance.voice = male;
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (activeUtterance === utterance) {
+      activeUtterance = null;
     }
-  }
+    options.onEnd?.();
+  };
 
-  if (options.onEnd) {
-    utterance.onend = options.onEnd;
-    utterance.onerror = options.onEnd;
-  }
+  utterance.onend = finish;
+  utterance.onerror = finish;
 
   window.speechSynthesis.speak(utterance);
 }
 
 // Stop any ongoing local speech
 export function stopLocalSpeech() {
-  if ('speechSynthesis' in window) {
+  activeUtterance = null;
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 }

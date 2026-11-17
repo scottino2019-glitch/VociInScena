@@ -7,18 +7,25 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react';
-import { AudioCue, Character, DialogueLine } from '../types';
+import { AudioCue, Character, DialogueLine, VoiceOption } from '../types';
 import { formatTime, downloadBase64Mp3, base64ToMp3BlobUrl, speakLocal, stopLocalSpeech } from '../utils/audio';
+import { getVoiceLang, isBrowserVoiceId } from '../hooks/useDeviceVoices';
 
 interface PlayerBarProps {
   characters: Record<'char1' | 'char2', Character>;
   lines: DialogueLine[];
+  deviceVoices: VoiceOption[];
+  backendAvailable: boolean;
+  onBackendUnavailable?: () => void;
   onActiveLineChange: (lineId: string | null) => void;
 }
 
 export const PlayerBar: React.FC<PlayerBarProps> = ({
   characters,
   lines,
+  deviceVoices,
+  backendAvailable,
+  onBackendUnavailable,
   onActiveLineChange,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -41,6 +48,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   const playbackRateRef = useRef(playbackRate);
   const lastActiveLineIdRef = useRef<string | null>(null);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localCancelRef = useRef<boolean>(false);
 
   const isPlayingRef = useRef(isPlaying);
@@ -129,6 +137,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       if (statusTimerRef.current) {
         clearTimeout(statusTimerRef.current);
       }
+      if (localTimerRef.current) {
+        clearTimeout(localTimerRef.current);
+      }
       localCancelRef.current = true;
       stopLocalSpeech();
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -153,52 +164,79 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     }
   };
 
-  const playLocalDialogueSequence = async () => {
+  const cancelLocalSequence = () => {
+    localCancelRef.current = true;
+    if (localTimerRef.current) {
+      clearTimeout(localTimerRef.current);
+      localTimerRef.current = null;
+    }
+    stopLocalSpeech();
+  };
+
+  const playLocalDialogueSequence = () => {
     const validLines = lines.filter((l) => l.text.trim().length > 0);
     if (validLines.length === 0) return;
 
+    cancelLocalSequence();
     localCancelRef.current = false;
     setIsPlaying(true);
-    setTransientStatus('Riproduzione tramite sintesi vocale del browser (anteprima locale).', 5000);
+    setTransientStatus('Riproduzione con voci Google / Android del dispositivo.', 5000);
 
-    for (let i = 0; i < validLines.length; i++) {
-      if (localCancelRef.current) break;
-      const line = validLines[i];
+    const speakStep = (idx: number) => {
+      if (localCancelRef.current || idx >= validLines.length) {
+        setIsPlaying(false);
+        onActiveLineChangeRef.current(null);
+        return;
+      }
+
+      const line = validLines[idx];
       const speaker = characters[line.characterId];
+      const lang = getVoiceLang(speaker.voice, deviceVoices);
       onActiveLineChangeRef.current(line.id);
 
-      await new Promise<void>((resolve) => {
-        speakLocal(line.text.trim(), {
-          lang: speaker.voice.slice(0, 5) || 'it-IT',
-          pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
-          rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
-          gender: speaker.gender,
-          emotion: line.emotion,
-          onEnd: () => resolve(),
-        });
+      speakLocal(line.text.trim(), {
+        voiceId: speaker.voice,
+        lang,
+        pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
+        rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
+        gender: speaker.gender,
+        emotion: line.emotion,
+        onEnd: () => {
+          if (localCancelRef.current) {
+            setIsPlaying(false);
+            onActiveLineChangeRef.current(null);
+            return;
+          }
+          if (idx + 1 >= validLines.length) {
+            setIsPlaying(false);
+            onActiveLineChangeRef.current(null);
+            return;
+          }
+          const pauseMs = Math.max(200, Math.min(3000, (line.pauseAfterSec || 0.6) * 1000));
+          localTimerRef.current = setTimeout(() => {
+            speakStep(idx + 1);
+          }, pauseMs);
+        },
       });
+    };
 
-      if (localCancelRef.current) break;
-      const pauseMs = Math.max(200, Math.min(3000, (line.pauseAfterSec || 0.6) * 1000));
-      if (i < validLines.length - 1) {
-        await new Promise<void>((r) => setTimeout(r, pauseMs));
-      }
-    }
-
-    setIsPlaying(false);
-    onActiveLineChangeRef.current(null);
+    // Trigger first line synchronously inside user gesture
+    speakStep(0);
   };
 
   const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audioBase64) {
+    if (!audioBase64 || isBrowserVoiceId(characters.char1.voice) || isBrowserVoiceId(characters.char2.voice)) {
       if (isPlaying) {
-        localCancelRef.current = true;
-        stopLocalSpeech();
+        cancelLocalSequence();
         setIsPlaying(false);
         onActiveLineChangeRef.current(null);
+        return;
       }
-      return;
+      if (!audioBase64) {
+        playLocalDialogueSequence();
+        return;
+      }
     }
     if (!audio) return;
     if (!audio.paused) {
@@ -234,72 +272,86 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     }
   };
 
-  const handleGenerateAudio = async () => {
+  const usesDeviceVoices =
+    isBrowserVoiceId(characters.char1.voice) ||
+    isBrowserVoiceId(characters.char2.voice) ||
+    !backendAvailable;
+
+  const handleGenerateAudio = () => {
     if (isGenerating || lines.length === 0) return;
+    cancelLocalSequence();
+
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      audio.pause();
+    }
+
+    // Play synchronously with Google/Android SpeechSynthesis when device voices are selected or backend API is absent
+    if (usesDeviceVoices) {
+      playLocalDialogueSequence();
+      return;
+    }
+
     setIsGenerating(true);
     setTransientStatus('Sintesi vocale in corso...', 0);
-    localCancelRef.current = true;
-    stopLocalSpeech();
 
-    try {
-      const audio = audioRef.current;
-      if (audio && !audio.paused) {
-        audio.pause();
-      }
+    void (async () => {
+      try {
+        const response = await fetch('/api/tts/generate-dialogue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characters,
+            lines,
+          }),
+        });
 
-      const response = await fetch('/api/tts/generate-dialogue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characters,
-          lines,
-        }),
-      });
-
-      if (response.status === 404) {
-        setIsGenerating(false);
-        void playLocalDialogueSequence();
-        return;
-      }
-
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Errore durante la generazione audio');
-      }
-
-      const data = await response.json();
-      const newCues: AudioCue[] = data.cues || [];
-      cuesRef.current = newCues;
-      lastActiveLineIdRef.current = null;
-      onActiveLineChangeRef.current(null);
-
-      setAudioBase64(data.audioBase64);
-      setCues(newCues);
-      setTotalDuration(data.totalDurationSec || 0);
-      setCurrentTime(0);
-
-      if (audio) {
-        if (blobUrlRef.current) {
-          URL.revokeObjectURL(blobUrlRef.current);
+        if (response.status === 404) {
+          onBackendUnavailable?.();
+          setIsGenerating(false);
+          playLocalDialogueSequence();
+          return;
         }
-        const nextUrl = base64ToMp3BlobUrl(data.audioBase64);
-        blobUrlRef.current = nextUrl;
 
-        audio.src = nextUrl;
-        audio.currentTime = 0;
-        const started = await safePlay(audio);
-        if (started) {
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Errore durante la generazione audio');
+        }
+
+        const data = await response.json();
+        const newCues: AudioCue[] = data.cues || [];
+        cuesRef.current = newCues;
+        lastActiveLineIdRef.current = null;
+        onActiveLineChangeRef.current(null);
+
+        setAudioBase64(data.audioBase64);
+        setCues(newCues);
+        setTotalDuration(data.totalDurationSec || 0);
+        setCurrentTime(0);
+
+        if (audio) {
+          if (blobUrlRef.current) {
+            URL.revokeObjectURL(blobUrlRef.current);
+          }
+          const nextUrl = base64ToMp3BlobUrl(data.audioBase64);
+          blobUrlRef.current = nextUrl;
+
+          audio.src = nextUrl;
+          audio.currentTime = 0;
+          const started = await safePlay(audio);
+          if (started) {
+            setTransientStatus('Audio generato con successo!', 3000);
+          }
+        } else {
           setTransientStatus('Audio generato con successo!', 3000);
         }
-      } else {
-        setTransientStatus('Audio generato con successo!', 3000);
+      } catch (error: any) {
+        console.error(error);
+        setTransientStatus(`Errore: ${error.message}`, 0);
+      } finally {
+        setIsGenerating(false);
       }
-    } catch (error: any) {
-      console.error(error);
-      setTransientStatus(`Errore: ${error.message}`, 0);
-    } finally {
-      setIsGenerating(false);
-    }
+    })();
   };
 
   const handleDownloadMp3 = () => {
@@ -402,7 +454,13 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-[#78350f]" />
-                  <span>{audioBase64 ? 'Rigenera Audio' : 'Crea Audio Dialogo'}</span>
+                  <span>
+                    {usesDeviceVoices
+                      ? 'Ascolta Dialogo'
+                      : audioBase64
+                      ? 'Rigenera Audio'
+                      : 'Crea Audio Dialogo'}
+                  </span>
                 </>
               )}
             </button>

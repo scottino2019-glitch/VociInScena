@@ -2,51 +2,56 @@ import { DialoguePreset, EmotionType, VoiceOption } from '../types';
 
 export const VOICES: VoiceOption[] = [
   // Italian Voices
-  { id: 'it-IT-DiegoNeural', name: 'Diego (Naturale, Vivace)', gender: 'male', lang: 'it-IT', langLabel: 'Italiano' },
-  { id: 'it-IT-GiuseppeNeural', name: 'Giuseppe (Profondo, Rilassato)', gender: 'male', lang: 'it-IT', langLabel: 'Italiano' },
-  { id: 'it-IT-ElsaNeural', name: 'Elsa (Brillante, Espressiva)', gender: 'female', lang: 'it-IT', langLabel: 'Italiano' },
-  { id: 'it-IT-IsabellaNeural', name: 'Isabella (Dolce, Calda)', gender: 'female', lang: 'it-IT', langLabel: 'Italiano' },
+  { id: 'it-IT-DiegoNeural', name: 'Diego (Naturale, Vivace)', gender: 'male', lang: 'it-IT', langLabel: 'Italiano', source: 'edge-neural' },
+  { id: 'it-IT-GiuseppeNeural', name: 'Giuseppe (Profondo, Rilassato)', gender: 'male', lang: 'it-IT', langLabel: 'Italiano', source: 'edge-neural' },
+  { id: 'it-IT-ElsaNeural', name: 'Elsa (Brillante, Espressiva)', gender: 'female', lang: 'it-IT', langLabel: 'Italiano', source: 'edge-neural' },
+  { id: 'it-IT-IsabellaNeural', name: 'Isabella (Dolce, Calda)', gender: 'female', lang: 'it-IT', langLabel: 'Italiano', source: 'edge-neural' },
+  { id: 'google-tts:it', name: 'Google TTS Italiano (MP3 Server)', gender: 'female', lang: 'it-IT', langLabel: 'Italiano', source: 'google-tts' },
   // Japanese (Giapponese)
-  { id: 'ja-JP-NanamiNeural', name: 'Nanami (七海 - Chiara, Espressiva)', gender: 'female', lang: 'ja-JP', langLabel: 'Giapponese' },
-  { id: 'ja-JP-KeitaNeural', name: 'Keita (圭太 - Caldo, Giovanile)', gender: 'male', lang: 'ja-JP', langLabel: 'Giapponese' },
-  { id: 'ja-JP-AoiNeural', name: 'Aoi (葵 - Dolce, Delicata)', gender: 'female', lang: 'ja-JP', langLabel: 'Giapponese' },
-  { id: 'ja-JP-NaokiNeural', name: 'Naoki (直樹 - Autorevole, Calmo)', gender: 'male', lang: 'ja-JP', langLabel: 'Giapponese' },
+  { id: 'ja-JP-NanamiNeural', name: 'Nanami (七海 - Chiara, Espressiva)', gender: 'female', lang: 'ja-JP', langLabel: 'Giapponese', source: 'edge-neural' },
+  { id: 'ja-JP-KeitaNeural', name: 'Keita (圭太 - Caldo, Giovanile)', gender: 'male', lang: 'ja-JP', langLabel: 'Giapponese', source: 'edge-neural' },
+  { id: 'ja-JP-AoiNeural', name: 'Aoi (葵 - Dolce, Delicata)', gender: 'female', lang: 'ja-JP', langLabel: 'Giapponese', source: 'edge-neural' },
+  { id: 'ja-JP-NaokiNeural', name: 'Naoki (直樹 - Autorevole, Calmo)', gender: 'male', lang: 'ja-JP', langLabel: 'Giapponese', source: 'edge-neural' },
+  { id: 'google-tts:ja', name: 'Google TTS Giapponese (日本語 MP3)', gender: 'female', lang: 'ja-JP', langLabel: 'Giapponese', source: 'google-tts' },
   // Korean (Coreano)
-  { id: 'ko-KR-SunHiNeural', name: 'Sun-Hi (선희 - Vivace, Melodica)', gender: 'female', lang: 'ko-KR', langLabel: 'Coreano' },
-  { id: 'ko-KR-InJoonNeural', name: 'In-Joon (인준 - Profondo, Raffinato)', gender: 'male', lang: 'ko-KR', langLabel: 'Coreano' },
+  { id: 'ko-KR-SunHiNeural', name: 'Sun-Hi (선희 - Vivace, Melodica)', gender: 'female', lang: 'ko-KR', langLabel: 'Coreano', source: 'edge-neural' },
+  { id: 'ko-KR-InJoonNeural', name: 'In-Joon (인준 - Profondo, Raffinato)', gender: 'male', lang: 'ko-KR', langLabel: 'Coreano', source: 'edge-neural' },
+  { id: 'google-tts:ko', name: 'Google TTS Coreano (한국어 MP3)', gender: 'female', lang: 'ko-KR', langLabel: 'Coreano', source: 'google-tts' },
   // Chinese Mandarin (Cinese Mandarino)
-  { id: 'zh-CN-XiaoxiaoNeural', name: 'Xiaoxiao (晓晓 - Dolce, Naturale)', gender: 'female', lang: 'zh-CN', langLabel: 'Cinese' },
-  { id: 'zh-CN-YunxiNeural', name: 'Yunxi (云希 - Dinamico, Giovanile)', gender: 'male', lang: 'zh-CN', langLabel: 'Cinese' },
-  { id: 'zh-CN-YunjianNeural', name: 'Yunjian (云健 - Narrativo, Serio)', gender: 'male', lang: 'zh-CN', langLabel: 'Cinese' },
+  { id: 'zh-CN-XiaoxiaoNeural', name: 'Xiaoxiao (晓晓 - Dolce, Naturale)', gender: 'female', lang: 'zh-CN', langLabel: 'Cinese', source: 'edge-neural' },
+  { id: 'zh-CN-YunxiNeural', name: 'Yunxi (云希 - Dinamico, Giovanile)', gender: 'male', lang: 'zh-CN', langLabel: 'Cinese', source: 'edge-neural' },
+  { id: 'zh-CN-YunjianNeural', name: 'Yunjian (云健 - Narrativo, Serio)', gender: 'male', lang: 'zh-CN', langLabel: 'Cinese', source: 'edge-neural' },
+  { id: 'google-tts:zh-CN', name: 'Google TTS Cinese (普通话 MP3)', gender: 'female', lang: 'zh-CN', langLabel: 'Cinese', source: 'google-tts' },
   // Cantonese (Hong Kong)
-  { id: 'zh-HK-HiuMaanNeural', name: 'HiuMaan (曉曼 - Femminile)', gender: 'female', lang: 'zh-HK', langLabel: 'Cantonese' },
-  { id: 'zh-HK-WanLungNeural', name: 'WanLung (雲龍 - Maschile)', gender: 'male', lang: 'zh-HK', langLabel: 'Cantonese' },
+  { id: 'zh-HK-HiuMaanNeural', name: 'HiuMaan (曉曼 - Femminile)', gender: 'female', lang: 'zh-HK', langLabel: 'Cantonese', source: 'edge-neural' },
+  { id: 'zh-HK-WanLungNeural', name: 'WanLung (雲龍 - Maschile)', gender: 'male', lang: 'zh-HK', langLabel: 'Cantonese', source: 'edge-neural' },
   // Vietnamese (Vietnamita)
-  { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Femminile Melodica)', gender: 'female', lang: 'vi-VN', langLabel: 'Vietnamita' },
-  { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Maschile Calmo)', gender: 'male', lang: 'vi-VN', langLabel: 'Vietnamita' },
+  { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Femminile Melodica)', gender: 'female', lang: 'vi-VN', langLabel: 'Vietnamita', source: 'edge-neural' },
+  { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Maschile Calmo)', gender: 'male', lang: 'vi-VN', langLabel: 'Vietnamita', source: 'edge-neural' },
   // Thai (Tailandese)
-  { id: 'th-TH-PremwadeeNeural', name: 'Premwadee (เปรมวดี - Femminile)', gender: 'female', lang: 'th-TH', langLabel: 'Tailandese' },
-  { id: 'th-TH-NiwatNeural', name: 'Niwat (นิวัฒน์ - Maschile)', gender: 'male', lang: 'th-TH', langLabel: 'Tailandese' },
+  { id: 'th-TH-PremwadeeNeural', name: 'Premwadee (เปรมวดี - Femminile)', gender: 'female', lang: 'th-TH', langLabel: 'Tailandese', source: 'edge-neural' },
+  { id: 'th-TH-NiwatNeural', name: 'Niwat (นิวัฒน์ - Maschile)', gender: 'male', lang: 'th-TH', langLabel: 'Tailandese', source: 'edge-neural' },
   // Hindi (Indiano)
-  { id: 'hi-IN-SwaraNeural', name: 'Swara (स्वरा - Femminile Dolce)', gender: 'female', lang: 'hi-IN', langLabel: 'Hindi' },
-  { id: 'hi-IN-MadhurNeural', name: 'Madhur (मधुर - Maschile Caldo)', gender: 'male', lang: 'hi-IN', langLabel: 'Hindi' },
+  { id: 'hi-IN-SwaraNeural', name: 'Swara (स्वरा - Femminile Dolce)', gender: 'female', lang: 'hi-IN', langLabel: 'Hindi', source: 'edge-neural' },
+  { id: 'hi-IN-MadhurNeural', name: 'Madhur (मधुर - Maschile Caldo)', gender: 'male', lang: 'hi-IN', langLabel: 'Hindi', source: 'edge-neural' },
   // Arabic (Arabo)
-  { id: 'ar-SA-ZariyahNeural', name: 'Zariyah (زريعة - Femminile Espressiva)', gender: 'female', lang: 'ar-SA', langLabel: 'Arabo' },
-  { id: 'ar-SA-HamedNeural', name: 'Hamed (حامد - Maschile Profondo)', gender: 'male', lang: 'ar-SA', langLabel: 'Arabo' },
+  { id: 'ar-SA-ZariyahNeural', name: 'Zariyah (زريعة - Femminile Espressiva)', gender: 'female', lang: 'ar-SA', langLabel: 'Arabo', source: 'edge-neural' },
+  { id: 'ar-SA-HamedNeural', name: 'Hamed (حامد - Maschile Profondo)', gender: 'male', lang: 'ar-SA', langLabel: 'Arabo', source: 'edge-neural' },
   // English Voices
-  { id: 'en-US-GuyNeural', name: 'Guy (American Male, Natural)', gender: 'male', lang: 'en-US', langLabel: 'Inglese' },
-  { id: 'en-US-ChristopherNeural', name: 'Christopher (Warm Storyteller)', gender: 'male', lang: 'en-US', langLabel: 'Inglese' },
-  { id: 'en-US-JennyNeural', name: 'Jenny (Clear & Friendly)', gender: 'female', lang: 'en-US', langLabel: 'Inglese' },
-  { id: 'en-US-AriaNeural', name: 'Aria (Dynamic & Expressive)', gender: 'female', lang: 'en-US', langLabel: 'Inglese' },
+  { id: 'en-US-GuyNeural', name: 'Guy (American Male, Natural)', gender: 'male', lang: 'en-US', langLabel: 'Inglese', source: 'edge-neural' },
+  { id: 'en-US-ChristopherNeural', name: 'Christopher (Warm Storyteller)', gender: 'male', lang: 'en-US', langLabel: 'Inglese', source: 'edge-neural' },
+  { id: 'en-US-JennyNeural', name: 'Jenny (Clear & Friendly)', gender: 'female', lang: 'en-US', langLabel: 'Inglese', source: 'edge-neural' },
+  { id: 'en-US-AriaNeural', name: 'Aria (Dynamic & Expressive)', gender: 'female', lang: 'en-US', langLabel: 'Inglese', source: 'edge-neural' },
+  { id: 'google-tts:en', name: 'Google TTS English (MP3 Server)', gender: 'female', lang: 'en-US', langLabel: 'Inglese', source: 'google-tts' },
   // Spanish
-  { id: 'es-ES-AlvaroNeural', name: 'Álvaro (Spagnolo Naturale)', gender: 'male', lang: 'es-ES', langLabel: 'Spagnolo' },
-  { id: 'es-ES-ElviraNeural', name: 'Elvira (Spagnolo Espressiva)', gender: 'female', lang: 'es-ES', langLabel: 'Spagnolo' },
+  { id: 'es-ES-AlvaroNeural', name: 'Álvaro (Spagnolo Naturale)', gender: 'male', lang: 'es-ES', langLabel: 'Spagnolo', source: 'edge-neural' },
+  { id: 'es-ES-ElviraNeural', name: 'Elvira (Spagnolo Espressiva)', gender: 'female', lang: 'es-ES', langLabel: 'Spagnolo', source: 'edge-neural' },
   // French
-  { id: 'fr-FR-HenriNeural', name: 'Henri (Francese Maschile)', gender: 'male', lang: 'fr-FR', langLabel: 'Francese' },
-  { id: 'fr-FR-DeniseNeural', name: 'Denise (Francese Femminile)', gender: 'female', lang: 'fr-FR', langLabel: 'Francese' },
+  { id: 'fr-FR-HenriNeural', name: 'Henri (Francese Maschile)', gender: 'male', lang: 'fr-FR', langLabel: 'Francese', source: 'edge-neural' },
+  { id: 'fr-FR-DeniseNeural', name: 'Denise (Francese Femminile)', gender: 'female', lang: 'fr-FR', langLabel: 'Francese', source: 'edge-neural' },
   // German
-  { id: 'de-DE-ConradNeural', name: 'Conrad (Tedesco Maschile)', gender: 'male', lang: 'de-DE', langLabel: 'Tedesco' },
-  { id: 'de-DE-KatjaNeural', name: 'Katja (Tedesco Femminile)', gender: 'female', lang: 'de-DE', langLabel: 'Tedesco' },
+  { id: 'de-DE-ConradNeural', name: 'Conrad (Tedesco Maschile)', gender: 'male', lang: 'de-DE', langLabel: 'Tedesco', source: 'edge-neural' },
+  { id: 'de-DE-KatjaNeural', name: 'Katja (Tedesco Femminile)', gender: 'female', lang: 'de-DE', langLabel: 'Tedesco', source: 'edge-neural' },
 ];
 
 export const EMOTIONS: Array<{

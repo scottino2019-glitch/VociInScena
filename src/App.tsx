@@ -12,15 +12,33 @@ import { PresetsModal } from './components/PresetsModal';
 import { PlayerBar } from './components/PlayerBar';
 import { Character, DialogueLine, ThemeMode } from './types';
 import { SAMPLE_PRESETS } from './constants/presets';
-import { PlusCircle, Sparkles, MessageSquare, Mic, SlidersHorizontal } from 'lucide-react';
+import { useDeviceVoices, pickBestDeviceVoice, isBrowserVoiceId, getVoiceLang } from './hooks/useDeviceVoices';
+import { PlusCircle, Sparkles, MessageSquare, Mic, SlidersHorizontal, Smartphone } from 'lucide-react';
 
 export default function App() {
   // High-contrast multi-hue palette: rich indigo chrome, clear sky canvas, soft lilac cards, deep charcoal ink
   const [theme, setTheme] = useState<ThemeMode>('indigo');
+  const deviceVoices = useDeviceVoices();
+  const [backendAvailable, setBackendAvailable] = useState<boolean>(true);
+  const autoSwitchedOfflineRef = React.useRef(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/voices', { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) setBackendAvailable(false);
+      })
+      .catch((err) => {
+        if (err?.name !== 'AbortError') {
+          setBackendAvailable(false);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   const [pairingType, setPairingType] = useState<'mf' | 'ff' | 'mm'>('mf');
   const [activePresetId, setActivePresetId] = useState<string>(SAMPLE_PRESETS[0].id);
@@ -173,6 +191,42 @@ export default function App() {
     );
   };
 
+  const handleApplyDeviceVoices = () => {
+    if (deviceVoices.length === 0) return;
+    setCharacters((prev) => {
+      const lang1 = getVoiceLang(prev.char1.voice, deviceVoices).slice(0, 2) || 'it';
+      const lang2 = getVoiceLang(prev.char2.voice, deviceVoices).slice(0, 2) || 'it';
+      const v1 = pickBestDeviceVoice(deviceVoices, lang1, prev.char1.gender);
+      const samePool = deviceVoices.filter((v) => v.lang.toLowerCase().startsWith(lang2.toLowerCase()));
+      let v2 = pickBestDeviceVoice(deviceVoices, lang2, prev.char2.gender);
+      if (v1 && v2 && v1.id === v2.id && samePool.length > 1) {
+        v2 = samePool.find((v) => v.id !== v1.id) || v2;
+      }
+      return {
+        char1: v1 ? { ...prev.char1, voice: v1.id } : prev.char1,
+        char2: v2 ? { ...prev.char2, voice: v2.id } : prev.char2,
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (!backendAvailable && deviceVoices.length > 0 && !autoSwitchedOfflineRef.current) {
+      autoSwitchedOfflineRef.current = true;
+      handleApplyDeviceVoices();
+    }
+  }, [backendAvailable, deviceVoices]);
+
+  const handleRestoreServerVoices = () => {
+    const preset = SAMPLE_PRESETS.find((p) => p.id === activePresetId) || SAMPLE_PRESETS[0];
+    setCharacters((prev) => ({
+      char1: { ...prev.char1, voice: preset.char1.voice },
+      char2: { ...prev.char2, voice: preset.char2.voice },
+    }));
+  };
+
+  const usingDeviceVoices =
+    isBrowserVoiceId(characters.char1.voice) || isBrowserVoiceId(characters.char2.voice);
+
   const handleAddNewLine = () => {
     const lastLine = lines[lines.length - 1];
     const nextChar = lastLine && lastLine.characterId === 'char1' ? 'char2' : 'char1';
@@ -318,14 +372,32 @@ export default function App() {
 
         {/* Characters Setup Grid */}
         <section aria-label="Configurazione Personaggi">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="text-sm font-extrabold text-[var(--chrome-ink)] uppercase tracking-wider flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-[var(--bg-highlight)]" />
               <span>I Due Personaggi del Dialogo</span>
             </h2>
-            <span className="text-sm font-semibold text-[var(--chrome-muted)]">
-              Modifica nome, voce e impostazioni acustiche base
-            </span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {deviceVoices.length > 0 && (
+                <button
+                  type="button"
+                  onClick={usingDeviceVoices && backendAvailable ? handleRestoreServerVoices : handleApplyDeviceVoices}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border border-[var(--bg-highlight)]/60 bg-[var(--chrome-pill)] text-[var(--bg-highlight)] hover:brightness-110 transition-all"
+                  title="Usa le voci Google o Android installate sul tuo dispositivo (zero latenza, zero errori server)"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>
+                    {usingDeviceVoices && backendAvailable
+                      ? 'Passa a Voci Server MP3'
+                      : `Usa Voci Google / Android (${deviceVoices.length})`}
+                  </span>
+                </button>
+              )}
+              <span className="text-sm font-semibold text-[var(--chrome-muted)]">
+                Modifica nome, voce e tono
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -338,6 +410,9 @@ export default function App() {
                 }))
               }
               label="Personaggio 1"
+              deviceVoices={deviceVoices}
+              backendAvailable={backendAvailable}
+              onBackendUnavailable={() => setBackendAvailable(false)}
             />
             <CharacterCard
               character={characters.char2}
@@ -348,6 +423,9 @@ export default function App() {
                 }))
               }
               label="Personaggio 2"
+              deviceVoices={deviceVoices}
+              backendAvailable={backendAvailable}
+              onBackendUnavailable={() => setBackendAvailable(false)}
             />
           </div>
         </section>
@@ -378,6 +456,9 @@ export default function App() {
                 index={index}
                 totalLines={lines.length}
                 characters={characters}
+                deviceVoices={deviceVoices}
+                backendAvailable={backendAvailable}
+                onBackendUnavailable={() => setBackendAvailable(false)}
                 isActive={activeLineId === line.id}
                 onUpdate={(updated) => handleUpdateLine(index, updated)}
                 onMoveUp={() => handleMoveUp(index)}
@@ -439,6 +520,9 @@ export default function App() {
       <PlayerBar
         characters={characters}
         lines={lines}
+        deviceVoices={deviceVoices}
+        backendAvailable={backendAvailable}
+        onBackendUnavailable={() => setBackendAvailable(false)}
         onActiveLineChange={setActiveLineId}
       />
 
