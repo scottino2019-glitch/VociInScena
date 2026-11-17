@@ -38,10 +38,11 @@ export function downloadBase64Mp3(base64Data: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// Offline / Local browser SpeechSynthesis helper (for instant zero-network preview if desired)
+// Offline / Local browser SpeechSynthesis helper
 export function speakLocal(
   text: string,
   options: {
+    lang?: string;
     pitch?: number;
     rate?: number;
     gender?: 'male' | 'female';
@@ -49,11 +50,15 @@ export function speakLocal(
     onEnd?: () => void;
   }
 ) {
-  if (!('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) {
+    options.onEnd?.();
+    return;
+  }
 
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'it-IT';
+  const targetLang = options.lang || 'it-IT';
+  utterance.lang = targetLang;
 
   // Base adjustments
   let pitchVal = 1.0;
@@ -96,15 +101,24 @@ export function speakLocal(
   utterance.pitch = Math.max(0.5, Math.min(2.0, pitchVal));
   utterance.rate = Math.max(0.5, Math.min(2.0, rateVal));
 
-  // Try to pick a matching gender voice if available in the browser
+  // Try to pick a matching language and gender voice if available in the browser
   const voices = window.speechSynthesis.getVoices();
-  const itVoices = voices.filter((v) => v.lang.startsWith('it'));
-  if (itVoices.length > 0) {
+  const langPrefix = targetLang.split('-')[0].toLowerCase();
+  const matchingVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(langPrefix));
+  if (matchingVoices.length > 0) {
     if (options.gender === 'female') {
-      const female = itVoices.find((v) => /elsa|alice|federica|chiara|lucia|cosimo|female|donna/i.test(v.name)) || itVoices[0];
+      const female =
+        matchingVoices.find((v) =>
+          /elsa|alice|federica|chiara|lucia|nanami|sunhi|xiaoxiao|jenny|aria|elvira|denise|katja|female|woman/i.test(
+            v.name
+          )
+        ) || matchingVoices[0];
       utterance.voice = female;
     } else {
-      const male = itVoices.find((v) => /diego|giuseppe|giorgio|carlo|male|uomo/i.test(v.name)) || itVoices[itVoices.length - 1];
+      const male =
+        matchingVoices.find((v) =>
+          /diego|giuseppe|giorgio|carlo|keita|injoon|yunxi|guy|alvaro|henri|conrad|male|man/i.test(v.name)
+        ) || matchingVoices[matchingVoices.length - 1];
       utterance.voice = male;
     }
   }

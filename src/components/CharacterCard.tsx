@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Loader2 } from 'lucide-react';
 import { Character, Gender } from '../types';
 import { VOICES, COLOR_CONFIGS } from '../constants/presets';
-import { base64ToMp3BlobUrl } from '../utils/audio';
+import { base64ToMp3BlobUrl, speakLocal, stopLocalSpeech } from '../utils/audio';
 
 interface CharacterCardProps {
   character: Character;
@@ -86,7 +86,17 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ character, onUpdat
         }),
       });
 
-      if (!response.ok) throw new Error('Errore durante la prova vocale');
+      if (!response.ok) {
+        speakLocal(testPhrase, {
+          lang: character.voice.slice(0, 5) || 'it-IT',
+          pitch: character.defaultPitch,
+          rate: character.defaultRate,
+          gender: character.gender,
+          onEnd: () => setIsPlayingTest(false),
+        });
+        return;
+      }
+
       const data = await response.json();
 
       if (audioRef.current) {
@@ -113,20 +123,15 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({ character, onUpdat
         }
         throw playErr;
       }
-    } catch (err) {
-      console.warn('Fallback preview with SpeechSynthesis:', err);
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utt = new SpeechSynthesisUtterance(testPhrase);
-        utt.lang = character.voice.slice(0, 5) || 'it-IT';
-        utt.pitch = 1 + character.defaultPitch / 40;
-        utt.rate = 1 + character.defaultRate / 50;
-        utt.onend = () => setIsPlayingTest(false);
-        utt.onerror = () => setIsPlayingTest(false);
-        window.speechSynthesis.speak(utt);
-      } else {
-        setIsPlayingTest(false);
-      }
+    } catch {
+      stopLocalSpeech();
+      speakLocal(testPhrase, {
+        lang: character.voice.slice(0, 5) || 'it-IT',
+        pitch: character.defaultPitch,
+        rate: character.defaultRate,
+        gender: character.gender,
+        onEnd: () => setIsPlayingTest(false),
+      });
     }
   };
 

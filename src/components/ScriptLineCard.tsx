@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Loader2, ChevronUp, ChevronDown, Copy, Trash2, Sliders, Clock } from 'lucide-react';
 import { Character, DialogueLine } from '../types';
 import { EMOTIONS } from '../constants/presets';
-import { base64ToMp3BlobUrl } from '../utils/audio';
+import { base64ToMp3BlobUrl, speakLocal, stopLocalSpeech } from '../utils/audio';
 
 interface ScriptLineCardProps {
   line: DialogueLine;
@@ -79,7 +79,18 @@ export const ScriptLineCard: React.FC<ScriptLineCardProps> = ({
         }),
       });
 
-      if (!response.ok) throw new Error('Errore anteprima battuta');
+      if (!response.ok) {
+        speakLocal(line.text.trim(), {
+          lang: speaker.voice.slice(0, 5) || 'it-IT',
+          pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
+          rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
+          gender: speaker.gender,
+          emotion: line.emotion,
+          onEnd: () => setIsPlayingSolo(false),
+        });
+        return;
+      }
+
       const data = await response.json();
 
       if (audioRef.current) {
@@ -106,20 +117,16 @@ export const ScriptLineCard: React.FC<ScriptLineCardProps> = ({
         }
         throw playErr;
       }
-    } catch (err) {
-      console.warn('Fallback SpeechSynthesis:', err);
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utt = new SpeechSynthesisUtterance(line.text);
-        utt.lang = speaker.voice.slice(0, 5) || 'it-IT';
-        utt.pitch = 1 + ((speaker.defaultPitch || 0) + (line.pitchOffset || 0)) / 40;
-        utt.rate = 1 + ((speaker.defaultRate || 0) + (line.rateOffset || 0)) / 50;
-        utt.onend = () => setIsPlayingSolo(false);
-        utt.onerror = () => setIsPlayingSolo(false);
-        window.speechSynthesis.speak(utt);
-      } else {
-        setIsPlayingSolo(false);
-      }
+    } catch {
+      stopLocalSpeech();
+      speakLocal(line.text.trim(), {
+        lang: speaker.voice.slice(0, 5) || 'it-IT',
+        pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
+        rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
+        gender: speaker.gender,
+        emotion: line.emotion,
+        onEnd: () => setIsPlayingSolo(false),
+      });
     }
   };
 

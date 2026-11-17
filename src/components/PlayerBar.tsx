@@ -8,7 +8,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { AudioCue, Character, DialogueLine } from '../types';
-import { formatTime, downloadBase64Mp3, base64ToMp3BlobUrl } from '../utils/audio';
+import { formatTime, downloadBase64Mp3, base64ToMp3BlobUrl, speakLocal, stopLocalSpeech } from '../utils/audio';
 
 interface PlayerBarProps {
   characters: Record<'char1' | 'char2', Character>;
@@ -41,6 +41,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   const playbackRateRef = useRef(playbackRate);
   const lastActiveLineIdRef = useRef<string | null>(null);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localCancelRef = useRef<boolean>(false);
 
   const isPlayingRef = useRef(isPlaying);
   const currentTimeRef = useRef(currentTime);
@@ -128,6 +129,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
       if (statusTimerRef.current) {
         clearTimeout(statusTimerRef.current);
       }
+      localCancelRef.current = true;
+      stopLocalSpeech();
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
@@ -150,9 +153,54 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     }
   };
 
+  const playLocalDialogueSequence = async () => {
+    const validLines = lines.filter((l) => l.text.trim().length > 0);
+    if (validLines.length === 0) return;
+
+    localCancelRef.current = false;
+    setIsPlaying(true);
+    setTransientStatus('Riproduzione tramite sintesi vocale del browser (anteprima locale).', 5000);
+
+    for (let i = 0; i < validLines.length; i++) {
+      if (localCancelRef.current) break;
+      const line = validLines[i];
+      const speaker = characters[line.characterId];
+      onActiveLineChangeRef.current(line.id);
+
+      await new Promise<void>((resolve) => {
+        speakLocal(line.text.trim(), {
+          lang: speaker.voice.slice(0, 5) || 'it-IT',
+          pitch: (speaker.defaultPitch || 0) + (line.pitchOffset || 0),
+          rate: (speaker.defaultRate || 0) + (line.rateOffset || 0),
+          gender: speaker.gender,
+          emotion: line.emotion,
+          onEnd: () => resolve(),
+        });
+      });
+
+      if (localCancelRef.current) break;
+      const pauseMs = Math.max(200, Math.min(3000, (line.pauseAfterSec || 0.6) * 1000));
+      if (i < validLines.length - 1) {
+        await new Promise<void>((r) => setTimeout(r, pauseMs));
+      }
+    }
+
+    setIsPlaying(false);
+    onActiveLineChangeRef.current(null);
+  };
+
   const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio || !audioBase64) return;
+    if (!audioBase64) {
+      if (isPlaying) {
+        localCancelRef.current = true;
+        stopLocalSpeech();
+        setIsPlaying(false);
+        onActiveLineChangeRef.current(null);
+      }
+      return;
+    }
+    if (!audio) return;
     if (!audio.paused) {
       audio.pause();
     } else {
@@ -190,6 +238,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     if (isGenerating || lines.length === 0) return;
     setIsGenerating(true);
     setTransientStatus('Sintesi vocale in corso...', 0);
+    localCancelRef.current = true;
+    stopLocalSpeech();
 
     try {
       const audio = audioRef.current;
@@ -205,6 +255,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           lines,
         }),
       });
+
+      if (response.status === 404) {
+        setIsGenerating(false);
+        void playLocalDialogueSequence();
+        return;
+      }
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
@@ -380,7 +436,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               <button
                 type="button"
                 onClick={togglePlay}
-                disabled={!audioBase64 || isGenerating}
+                disabled={(!audioBase64 && !isPlaying) || isGenerating}
                 className="w-11 h-11 rounded-full bg-[var(--bg-highlight)] hover:brightness-95 text-[#16192c] flex items-center justify-center transition-all active:scale-95 disabled:opacity-35"
               >
                 {isPlaying ? (

@@ -181,6 +181,11 @@ function estimateMp3Duration(bufferLength: number, bitrateKbps = 96): number {
   return Number((bufferLength / bytesPerSec).toFixed(2));
 }
 
+// Prevent browser 404 noise for /favicon.ico
+app.get('/favicon.ico', (_req, res) => {
+  res.status(204).end();
+});
+
 // Routes
 app.get('/api/voices', (_req, res) => {
   res.json({ voices: AVAILABLE_VOICES });
@@ -345,6 +350,11 @@ app.post('/api/tts/download', async (req, res) => {
     console.error('Download error:', error);
     res.status(500).send(error.message || 'Errore download audio');
   }
+});
+
+// Catch-all JSON 404 for unknown API paths
+app.all('/api/*', (_req, res) => {
+  res.status(404).json({ error: 'Endpoint API non trovato' });
 });
 
 // Mount Vite or serve static files
